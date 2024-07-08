@@ -1,29 +1,17 @@
-# Use an official Node.js image as the base image
-FROM node:14
+# Use the latest official Node.js image as a base
+FROM node:latest
 
-# Set the working directory inside the container
+# Set the working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json files
-COPY package*.json ./
+# Copy the application files
+COPY . .
 
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the application code
-COPY . .
+# Expose the port the development server runs on
+EXPOSE 5173
 
-# Build the React application
-RUN npm run build
-
-# Use an official Nginx image to serve the build
-FROM nginx:alpine
-
-# Copy the build output to Nginx's HTML directory
-COPY --from=0 /app/build /usr/share/nginx/html
-
-# Expose port 80
-EXPOSE 80
-
-# Start Nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Run the development server
+CMD ["npm", "run", "dev", "--", "--host"]

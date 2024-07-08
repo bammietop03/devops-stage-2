@@ -4,33 +4,25 @@ services:
   frontend:
     build: ./frontend
     container_name: frontend
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`home.detprod.com`) && PathPrefix(`/`)"
-      - "traefik.http.routers.frontend.entrypoints=websecure"
-      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.middlewares.frontend-https-redirect.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.www-redirect.redirectregex.regex=^https://www\\.(.*)"
-      - "traefik.http.middlewares.www-redirect.redirectregex.replacement=https://$$1"
-      - "traefik.http.middlewares.www-redirect.redirectregex.permanent=true"
+    ports:
+      - "5173:5173"
+    env_file:
+      - ./frontend/.env
     restart: always
 
   backend:
     build: ./backend
     container_name: backend
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`home.detprod.com`) && (PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`))"
-      - "traefik.http.routers.backend.entrypoints=websecure"
-      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
-      - "traefik.http.middlewares.backend-https-redirect.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.www-redirect.redirectregex.regex=^https://www\\.(.*)"
-      - "traefik.http.middlewares.www-redirect.redirectregex.replacement=https://$$1"
-      - "traefik.http.middlewares.www-redirect.redirectregex.permanent=true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    env_file:
+      - ./backend/.env
     restart: always
 
   db:
-    image: postgres:13
+    image: postgres:latest
     container_name: postgres
     environment:
       POSTGRES_DB: app
@@ -38,6 +30,8 @@ services:
       POSTGRES_PASSWORD: changethis123
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - ./backend/.env
     restart: always
 
   adminer:
@@ -45,47 +39,18 @@ services:
     container_name: adminer
     ports:
       - "8080:8080" # Adminer port
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.adminer.rule=Host(`db.detprod.com`)"
-      - "traefik.http.routers.adminer.entrypoints=websecure"
-      - "traefik.http.routers.adminer.tls.certresolver=letsencrypt"
     restart: always
 
   proxy_manager:
     image: jc21/nginx-proxy-manager:latest
     container_name: proxy_manager
     ports:
-      - "8090:8090" # Proxy Manager port
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.proxy_manager.rule=Host(`proxy.detprod.com`)"
-      - "traefik.http.routers.proxy_manager.entrypoints=websecure"
-      - "traefik.http.routers.proxy_manager.tls.certresolver=letsencrypt"
+      - "80:80"
+      - "443:443"
+      - "8090:81" # Proxy Manager UI port
     volumes:
       - proxy_manager_data:/data
       - proxy_manager_letsencrypt:/etc/letsencrypt
-    restart: always
-
-  traefik:
-    image: traefik
-    container_name: traefik
-    command:
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsencrypt.acme.email=bammietop@gmail.com"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/acme.json"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-    ports:
-      - "80:80"
-      - "443:443"
-      - "8080:8080" # Traefik dashboard
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
-      - "./traefik.yml:/etc/traefik/traefik.yml"
-      - "./acme.json:/acme.json"
     restart: always
 
 volumes:
